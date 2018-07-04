@@ -1,4 +1,12 @@
 # ref : https://blog.codingecho.com/2018/03/25/lstm%E3%82%92%E4%BD%BF%E3%81%A3%E3%81%A6%E3%83%86%E3%82%AD%E3%82%B9%E3%83%88%E3%81%AE%E5%A4%9A%E3%82%AF%E3%83%A9%E3%82%B9%E5%88%86%E9%A1%9E%E3%82%92%E3%81%99%E3%82%8B/
+
+"""------------- todo list -------------
+ストップワードの除去
+https://qiita.com/Hironsan/items/2466fe0f344115aff177#%E3%82%B9%E3%83%88%E3%83%83%E3%83%97%E3%83%AF%E3%83%BC%E3%83%89%E3%81%AE%E9%99%A4%E5%8E%BB
+ベクトルの取得
+単語ベクトルの無いベクトルの対応(Negative samplingで新たにベクトルを割り当てたほうがいいかも)
+モデルのチューニング
+------------- todo list -------------"""
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Flatten, Dense, Embedding, Input, concatenate
@@ -7,6 +15,10 @@ from keras.layers import LSTM
 from keras.models import Model
 from keras import backend as K
 import MeCab
+import os
+import urllib.request
+from collections import Counter
+from gensim import corpora
 
 batch_size=1
 
@@ -59,6 +71,45 @@ l=np.append(l,[l3])
 print(l.shape)
 nb_label=l.shape[1]
 
+# 参考サイト
+# https://github.com/Hironsan/natural-language-preprocessings/blob/master/preprocessings/ja/stopwords.py
+def maybe_download(path):
+    url = 'http://svn.sourceforge.jp/svnroot/slothlib/CSharp/Version1/SlothLib/NLP/Filter/StopWord/word/Japanese.txt'
+    if os.path.exists(path):
+        print('File already exists.')
+    else:
+        print('Downloading...')
+        # Download the file from `url` and save it locally under `file_name`:
+        urllib.request.urlretrieve(url, path)
+
+def create_dictionary(texts):
+    dictionary = corpora.Dictionary(texts)
+    return dictionary
+
+def remove_stopwords(words, stopwords):
+    words = [word for word in words if word not in stopwords]
+    return words
+
+def most_common(docs, n=100):
+    fdist = Counter()
+    for doc in docs:
+        for word in doc:
+            fdist[word] += 1
+    common_words = {word for word, freq in fdist.most_common(n)}
+    print('{}/{}'.format(n, len(fdist)))
+    return common_words
+
+def get_stop_words(docs, n=100, min_freq=1):
+    fdist = Counter()
+    for doc in docs:
+        for word in doc:
+            fdist[word] += 1
+    common_words = {word for word, freq in fdist.most_common(n)}
+    rare_words = {word for word, freq in fdist.items() if freq <= min_freq}
+    stopwords = common_words.union(rare_words)
+    print('{}/{}'.format(len(stopwords), len(fdist)))
+    return stopwords
+
 def loaddata(path=None):
     with open(path, encoding="utf-8") as f:
         #l_strip = [s.strip().split("。") for s in f.readlines() if len(s)>1]
@@ -77,8 +128,6 @@ def morpheme(textlist):
         for sentence in sentence:
             words.append(sentence.split('\t')[0]) # 形態素解析したあとの1文内の単語の集合
         morph_textlist.append(words)
-    # ストップワードの除去
-    # https://qiita.com/Hironsan/items/2466fe0f344115aff177#%E3%82%B9%E3%83%88%E3%83%83%E3%83%97%E3%83%AF%E3%83%BC%E3%83%89%E3%81%AE%E9%99%A4%E5%8E%BB
     return morph_textlist
 
 def recall_score(y_true, y_pred):
@@ -160,7 +209,10 @@ def main():
 #    loaddata(path="./data/000"+str(i)+".txt")
 text=loaddata(path="./data/0002.txt")
 print(text)
-print(morpheme(text))
+morphorical_text = morpheme(text)
+print(morphorical_text)
+stopwords = get_stop_words(morphorical_text) # ストップワードの除去
+print(stopwords)
 
 """
     sentence=[]
